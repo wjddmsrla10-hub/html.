@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>비치코밍 플랫폼 — 바다 지킴이</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00b4d8">
+  <style>
+    :root{--primary:#00b4d8;--primary-dark:#0077b6;--accent:#2a9d8f;--bg:#f4f9f9;--muted:#6b7280;--card:#ffffff;--danger:#ef4444}
+    html,body{height:100%;margin:0;font-family:Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    body{background:var(--bg); color:#12263a; padding:20px; box-sizing:border-box;}
+    header{background:var(--primary); color:#fff; padding:18px; border-radius:10px; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.08);}
+    header h1{margin:0;font-size:20px}
+    header p{margin:6px 0 0;font-size:13px;opacity:.95}
+
+    .wrap{max-width:980px;margin:20px auto; display:grid; grid-template-columns:1fr 360px; gap:20px;}
+    .main, .aside{background:var(--card); padding:16px; border-radius:10px; box-shadow:0 2px 6px rgba(2,6,23,0.06);}
+    .main h2, .aside h2{margin:0 0 12px;font-size:16px;color:var(--primary-dark)}
+    .badge{background:var(--accent);color:#fff;padding:6px 12px;border-radius:999px;font-weight:700;display:inline-block}
+
+    label{display:block;font-size:13px;margin-top:8px;color:var(--muted)}
+    input, select, button, textarea{font-size:14px;border:1px solid #e6eef4;padding:10px;border-radius:8px;background:#fff;box-sizing:border-box;width:100%}
+    .row{display:flex;gap:10px}
+    .col{flex:1}
+    button{background:var(--primary);color:#fff;border:none;cursor:pointer;border-radius:8px;padding:10px}
+    button.secondary{background:#e6eef4;color:#12263a}
+    button.danger{background:var(--danger);color:#fff}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .small{font-size:13px;color:var(--muted)}
+    .muted{color:var(--muted)}
+
+    ul.meetings{list-style:none;margin:0;padding:0}
+    li.meeting{display:flex;gap:12px;align-items:center;padding:12px;border-radius:8px;background:#f7fbfb;margin-bottom:10px}
+    .meeting-info{flex:1}
+    .meeting-title{font-weight:700}
+    .meta{font-size:13px;color:var(--muted);margin-top:6px}
+    .meeting-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+
+    .actions-row{display:flex;gap:8px}
+    .participant-list{font-size:13px;color:var(--muted);margin-top:6px}
+
+    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .empty{padding:10px;color:var(--muted);text-align:center;border-radius:8px;background:#f2f7f7}
+
+    @media (max-width:920px){ .wrap{grid-template-columns:1fr; padding-bottom:30px} .meeting-actions{align-items:flex-start} }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌊 바다 지킴이: 비치코밍 플랫폼</h1>
+    <p>같이 모여 해변을 깨끗하게 — 참여하면 마일리지가 쌓여요!</p>
+  </header>
+
+  <div class="wrap" role="main">
+    <section class="main" aria-labelledby="main-title">
+      <h2 id="main-title">📋 진행 중인 비치코밍 모임</h2>
+
+      <div class="filters" aria-hidden="false">
+        <input type="text" id="filter-text" placeholder="검색: 제목 또는 장소" style="flex:1;min-width:160px" aria-label="검색" />
+        <select id="filter-date" style="width:220px" aria-label="날짜 필터">
+          <option value="">모든 날짜</option><option value="today">오늘</option><option value="future">미래 일정</option>
+        </select>
+        <select id="filter-status" style="width:160px" aria-label="상태 필터">
+          <option value="">전체 (정원/참여)</option><option value="open">참여 가능</option><option value="full">정원 마감</option>
+        </select>
+        <button id="clear-filters" style="max-width:120px" class="secondary" aria-label="필터 초기화">필터 초기화</button>
+      </div>
+
+      <ul id="meeting-list" class="meetings" aria-live="polite"></ul>
+      <div id="empty" class="empty" style="display:none">아직 등록된 모임이 없습니다. 오른쪽에서 새 모임을 만들어보세요.</div>
+    </section>
+
+    <aside class="aside" aria-labelledby="aside-title">
+      <h2 id="aside-title">👤 내 프로필 & 모임 만들기</h2>
+
+      <p>보유 마일리지: <span id="user-mileage" class="badge">0 P</span></p>
+
+      <form id="meeting-form" aria-label="모임 생성 폼">
+        <label for="title">모임 제목</label>
+        <input id="title" required placeholder="예: 광안리 해변 플로깅" />
+
+        <label for="location">장소</label>
+        <input id="location" required placeholder="예: 부산 광안리 해수욕장" />
+
+        <div class="row">
+          <div class="col">
+            <label for="date">날짜</label>
+            <input id="date" type="date" required />
+          </div>
+          <div class="col">
+            <label for="time">시간</label>
+            <input id="time" type="time" required />
+          </div>
+        </div>
+
+        <label for="max_people">모집 인원</label>
+        <input id="max_people" type="number" min="1" value="10" required />
+
+        <label for="notes">비고 (선택)</label>
+        <textarea id="notes" rows="3" placeholder="추가 안내(집결지, 준비물 등)"></textarea>
+
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button type="submit" style="flex:1">모임 등록하기</button>
+          <button type="button" id="load-sample" style="flex:1;background:#2a9d8f" aria-label="샘플 데이터 불러오기">샘플 불러오기</button>
+        </div>
+      </form>
+
+      <hr style="margin:14px 0;border:none;border-top:1px solid #eee" />
+
+      <div>
+        <h3 style="margin:0 0 8px 0;font-size:14px">데이터 관리</h3>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button id="export-data" class="secondary" style="flex:1">백업 다운로드</button>
+          <label for="import-file" style="flex:1;display:block">
+            <input id="import-file" type="file" accept="application/json" style="display:none" />
+            <button id="import-button" class="secondary" style="width:100%">백업 불러오기</button>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="clear-data" class="danger" style="flex:1">전체 초기화</button>
+          <button id="show-raw" class="secondary" style="flex:1">원시 데이터 보기</button>
+        </div>
+      </div>
+
+      <hr style="margin:14px 0;border:none;border-top:1px solid #eee" />
+
+      <div>
+        <h3 style="margin:0 0 8px 0;font-size:14px">🗺️ 수거 장소 예시</h3>
+        <ul style="padding-left:18px;margin:0;color:var(--muted);font-size:14px">
+          <li>해수욕장 중앙 관리사무소 앞 분리수거장 (상시)</li>
+          <li>해변 공영주차장 대형 폐기물 수거함 (도보 3분)</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // 서비스워커 등록 (상대경로)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW 등록 실패', err));
+    }
+
+    const STORAGE = {
+      USER: 'bc_user_v1',
+      MEETINGS: 'bc_meetings_v1',
+      PARTICIPANTS: 'bc_participants_v1'
+    };
+
+    function initStorage() {
+      if (!localStorage.getItem(STORAGE.USER)) {
+        const user = { id: 1, name: '에코러너', mileage: 0 };
+        localStorage.setItem(STORAGE.USER, JSON.stringify(user));
+      }
+      if (!localStorage.getItem(STORAGE.MEETINGS)) {
+        localStorage.setItem(STORAGE.MEETINGS, JSON.stringify([]));
+      }
+      if (!localStorage.getItem(STORAGE.PARTICIPANTS)) {
+        localStorage.setItem(STORAGE.PARTICIPANTS, JSON.stringify([]));
+      }
+    }
+
+    function loadUser() { return JSON.parse(localStorage.getItem(STORAGE.USER)); }
+    function saveUser(u) { localStorage.setItem(STORAGE.USER, JSON.stringify(u)); }
+    function loadMeetings() { return JSON.parse(localStorage.getItem(STORAGE.MEETINGS)); }
+    function saveMeetings(arr) { localStorage.setItem(STORAGE.MEETINGS, JSON.stringify(arr)); }
+    function loadParticipants() { return JSON.parse(localStorage.getItem(STORAGE.PARTICIPANTS)); }
+    function saveParticipants(arr) { localStorage.setItem(STORAGE.PARTICIPANTS, JSON.stringify(arr)); }
+
+    function byId(id) { return document.getElementById(id); }
+    function fmtDateTime(dateStr, timeStr) {
+      try {
+        const d = new Date(dateStr + 'T' + timeStr);
+        return new Intl.DateTimeFormat('ko-KR', { year:'numeric',month:'numeric',day:'numeric', hour:'2-digit', minute:'2-digit' }).format(d);
+      } catch (e) { return dateStr + ' ' + timeStr; }
+    }
+    function uid() { return Date.now() + Math.floor(Math.random()*1000); }
+
+    function renderUser() {
+      const user = loadUser();
+      byId('user-mileage').textContent = (user.mileage || 0) + ' P';
+    }
+
+    function meetingStatus(meeting) {
+      const participants = loadParticipants().filter(p => p.meeting_id === meeting.id);
+      const current = participants.length;
+      const full = current >= Number(meeting.max_people);
+      return { current, full, participants };
+    }
+
+    function userJoined(meeting) {
+      const user = loadUser();
+      const parts = loadParticipants();
+      return parts.some(p => p.meeting_id === meeting.id && p.user_id === user.id);
+    }
+
+    function renderMeetings() {
+      const list = byId('meeting-list');
+      const meetings = loadMeetings().sort((a,b) => {
+        if (a.date === b.date) return a.time.localeCompare(b.time);
+        return a.date.localeCompare(b.date);
+      });
+      const filterText = byId('filter-text').value.trim().toLowerCase();
+      const fdate = byId('filter-date').value;
+      const fstatus = byId('filter-status').value;
+
+      const filtered = meetings.filter(m => {
+        if (filterText) {
+          const hay = (m.title + ' ' + m.location + ' ' + (m.notes||'')).toLowerCase();
+          if (!hay.includes(filterText)) return false;
+        }
+        if (fdate) {
+          const today = new Date(); today.setHours(0,0,0,0);
+          const mDate = new Date(m.date);
+          mDate.setHours(0,0,0,0);
+          if (fdate === 'today' && mDate.getTime() !== today.getTime()) return false;
+          if (fdate === 'future' && mDate.getTime() <= today.getTime()) return false;
+        }
+        if (fstatus) {
+          const s = meetingStatus(m);
+          if (fstatus === 'open' && s.full) return false;
+          if (fstatus === 'full' && !s.full) return false;
+        }
+        return true;
+      });
+
+      list.innerHTML = '';
+      if (filtered.length === 0) {
+        byId('empty').style.display = 'block';
+        return;
+      } else byId('empty').style.display = 'none';
+
+      filtered.forEach(m => {
+        const s = meetingStatus(m);
+        const joined = userJoined(m);
+
+        const li = document.createElement('li');
+        li.className = 'meeting';
+        li.setAttribute('tabindex', '0');
+
+        const info = document.createElement('div');
+        info.className = 'meeting-info';
+
+        const title = document.createElement('div');
+        title.className = 'meeting-title';
+        title.textContent = m.title;
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = `📍 ${m.location || '-'}  •  📅 ${fmtDateTime(m.date, m.time)}  •  👥 ${s.current}/${m.max_people}`;
+
+        const notes = document.createElement('div');
+        notes.className = 'small';
+        notes.textContent = m.notes || '';
+
+        info.appendChild(title);
+        info.appendChild(meta);
+        if (m.notes) info.appendChild(notes);
+
+        const actions = document.createElement('div');
+        actions.className = 'meeting-actions';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.minWidth = '110px';
+
+        if (joined) {
+          btn.textContent = '참여 취소';
+          btn.className = 'secondary';
+          btn.disabled = false;
+          btn.addEventListener('click', () => cancelParticipation(m.id));
+        } else if (s.full) {
+          btn.textContent = '정원 마감';
+          btn.disabled = true;
+        } else {
+          btn.textContent = '참여하기';
+          btn.disabled = false;
+          btn.addEventListener('click', () => participate(m.id));
+        }
+
+        const creator = document.createElement('div');
+        creator.className = 'small muted';
+        creator.textContent = `작성자: ${m.creator || '익명'} · 생성: ${new Date(m.created_at).toLocaleString()}`;
+
+        const pList = document.createElement('div');
+        pList.className = 'participant-list';
+        if (s.participants.length > 0) {
+          const names = s.participants.map(p => {
+            if (p.user_id === loadUser().id) return loadUser().name + ' (나)';
+            return '사용자 #' + p.user_id;
+          });
+          pList.textContent = '참여자: ' + names.join(', ');
+        } else {
+          pList.textContent = '아직 참여자가 없습니다.';
+        }
+
+        const controlRow = document.createElement('div');
+        controlRow.className = 'actions-row';
+        const detailsBtn = document.createElement('button');
+        detailsBtn.className = 'secondary';
+        detailsBtn.textContent = '상세보기';
+        detailsBtn.addEventListener('click', () => alertMeetingDetails(m, s.participants));
+        controlRow.appendChild(detailsBtn);
+        controlRow.appendChild(btn);
+
+        actions.appendChild(controlRow);
+        actions.appendChild(creator);
+
+        li.appendChild(info);
+        li.appendChild(actions);
+        li.appendChild(pList);
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById('meeting-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = byId('title').value.trim();
+      const location = byId('location').value.trim();
+      const date = byId('date').value;
+      const time = byId('time').value;
+      const max_people = Number(byId('max_people').value) || 1;
+      const notes = byId('notes').value.trim();
+
+      if (!title || !location || !date || !time) {
+        alert('모든 필수 항목을 입력해주세요.');
+        return;
+      }
+
+      const meetings = loadMeetings();
+      const newM = {
+        id: uid(),
+        title,
+        location,
+        date,
+        time,
+        max_people,
+        notes,
+        creator: loadUser().name,
+        created_at: new Date().toISOString()
+      };
+      meetings.push(newM);
+      saveMeetings(meetings);
+      renderMeetings();
+      byId('meeting-form').reset();
+      alert('모임이 등록되었습니다.');
+    });
+
+    function participate(meetingId) {
+      if (!confirm('이 모임에 참여하시겠어요?')) return;
+      const participants = loadParticipants();
+      const user = loadUser();
+      const meetings = loadMeetings();
+      const meeting = meetings.find(m => m.id === meetingId);
+      if (!meeting) { alert('모임을 찾을 수 없습니다.'); return; }
+      const s = meetingStatus(meeting);
+      if (s.full) { alert('이미 정원이 마감되었습니다.'); renderMeetings(); return; }
+      if (participants.some(p => p.user_id === user.id && p.meeting_id === meetingId)) {
+        alert('이미 참여한 모임입니다.');
+        renderMeetings();
+        return;
+      }
+
+      participants.push({ user_id: user.id, meeting_id: meetingId, created_at: new Date().toISOString() });
+      saveParticipants(participants);
+
+      user.mileage = (user.mileage || 0) + 10;
+      saveUser(user);
+
+      renderUser();
+      renderMeetings();
+
+      alert('참여가 완료되었습니다. 마일리지 10P가 적립되었습니다.');
+    }
+
+    function cancelParticipation(meetingId) {
+      if (!confirm('참여를 취소하시겠어요? 마일리지 10P가 차감됩니다.')) return;
+      let participants = loadParticipants();
+      const user = loadUser();
+      const meetings = loadMeetings();
+      const meeting = meetings.find(m => m.id === meetingId);
+      const beforeLen = participants.length;
+      participants = participants.filter(p => !(p.user_id === user.id && p.meeting_id === meetingId));
+      if (participants.length === beforeLen) {
+        alert('참여 기록을 찾을 수 없습니다.');
+        return;
+      }
+      saveParticipants(participants);
+
+      user.mileage = Math.max(0, (user.mileage || 0) - 10);
+      saveUser(user);
+
+      renderUser();
+      renderMeetings();
+      alert('참여 취소되었습니다. 마일리지 10P가 차감되었습니다.');
+    }
+
+    function alertMeetingDetails(meeting, participants) {
+      const users = participants.map(p => {
+        return `${p.user_id === loadUser().id ? loadUser().name + ' (나)' : '사용자 #' + p.user_id} - ${new Date(p.created_at).toLocaleString()}`;
+      }).join('\n') || '참여자가 없습니다.';
+      const txt = `제목: ${meeting.title}\n장소: ${meeting.location}\n일시: ${fmtDateTime(meeting.date, meeting.time)}\n정원: ${meeting.max_people}\n작성자: ${meeting.creator}\n\n비고:\n${meeting.notes || '-'}\n\n참여자 목록:\n${users}`;
+      alert(txt);
+    }
+
+    byId('load-sample').addEventListener('click', () => {
+      if (!confirm('샘플 모임을 추가하시겠어요? (기존 데이터 보존)')) return;
+      const samples = [
+        { id: uid(), title: '광안리 해변 플로깅', location: '광안리 해수욕장', date: nextDate(1), time: '09:30', max_people: 20, notes: '편한 옷과 장갑 지참', creator:'에코서포터', created_at: new Date().toISOString() },
+        { id: uid(), title: '해운대 아침 비치코밍', location: '해운대 해수욕장', date: nextDate(2), time: '08:00', max_people: 15, notes: '주차는 해운대 공영주차장 추천', creator:'플로깅모임', created_at: new Date().toISOString() },
+        { id: uid(), title: '송정 선셋 청소', location: '송정 해변', date: nextDate(5), time: '18:00', max_people: 12, notes: '', creator:'바다사랑', created_at: new Date().toISOString() }
+      ];
+      const meetings = loadMeetings().concat(samples);
+      saveMeetings(meetings);
+      renderMeetings();
+      alert('샘플 모임이 추가되었습니다.');
+    });
+
+    function nextDate(daysAhead) {
+      const d = new Date(); d.setDate(d.getDate() + daysAhead);
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
+    byId('filter-text').addEventListener('input', renderMeetings);
+    byId('filter-date').addEventListener('change', renderMeetings);
+    byId('filter-status').addEventListener('change', renderMeetings);
+    byId('clear-filters').addEventListener('click', () => {
+      byId('filter-text').value = '';
+      byId('filter-date').value = '';
+      byId('filter-status').value = '';
+      renderMeetings();
+    });
+
+    byId('export-data').addEventListener('click', () => {
+      const payload = {
+        meta: { exported_at: new Date().toISOString() },
+        user: loadUser(),
+        meetings: loadMeetings(),
+        participants: loadParticipants()
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'beachcombing-backup-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    const importFile = byId('import-file');
+    byId('import-button').addEventListener('click', (e) => {
+      e.preventDefault();
+      importFile.click();
+    });
+    importFile.addEventListener('change', (ev) => {
+      const f = ev.target.files[0];
+      if (!f) return;
+      if (!confirm('백업 파일을 불러오면 현재 데이터와 병합됩니다. 계속하시겠어요?')) { importFile.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (data.meetings && Array.isArray(data.meetings)) {
+            const existing = loadMeetings();
+            const existingIds = new Set(existing.map(m => m.id));
+            const toAdd = data.meetings.filter(m => !existingIds.has(m.id));
+            saveMeetings(existing.concat(toAdd));
+          }
+          if (data.participants && Array.isArray(data.participants)) {
+            const existingP = loadParticipants();
+            const setP = new Set(existingP.map(p => `${p.user_id}:${p.meeting_id}`));
+            const toAddP = data.participants.filter(p => !setP.has(`${p.user_id}:${p.meeting_id}`));
+            saveParticipants(existingP.concat(toAddP));
+          }
+          if (data.user && data.user.id === loadUser().id) {
+            const u = loadUser();
+            u.mileage = Math.max(u.mileage || 0, data.user.mileage || 0);
+            saveUser(u);
+          }
+          alert('백업 파일을 불러왔습니다.');
+          renderUser();
+          renderMeetings();
+        } catch (err) {
+          alert('파일을 읽을 수 없습니다: ' + err.message);
+        }
+      };
+      reader.readAsText(f);
+      importFile.value = '';
+    });
+
+    byId('clear-data').addEventListener('click', () => {
+      if (!confirm('모든 로컬 데이터를 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다.')) return;
+      localStorage.removeItem(STORAGE.MEETINGS);
+      localStorage.removeItem(STORAGE.PARTICIPANTS);
+      const u = loadUser();
+      u.mileage = 0;
+      saveUser(u);
+      initStorage();
+      renderUser();
+      renderMeetings();
+      alert('데이터를 초기화했습니다.');
+    });
+
+    byId('show-raw').addEventListener('click', () => {
+      const payload = {
+        user: loadUser(),
+        meetings: loadMeetings(),
+        participants: loadParticipants()
+      };
+      const win = window.open('', '_blank', 'noopener');
+      if (!win) { alert('팝업이 차단되었습니다. 브라우저 설정을 확인하세요.'); return; }
+      win.document.write('<pre>' + JSON.stringify(payload, null, 2) + '</pre>');
+      win.document.title = 'raw-data';
+    });
+
+    function init() { initStorage(); renderUser(); renderMeetings(); }
+    init();
+
+    window.__bc = { loadUser, loadMeetings, loadParticipants, saveMeetings, saveParticipants, saveUser };
+  </script>
+</body>
+</html>

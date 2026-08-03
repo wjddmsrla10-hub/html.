@@ -1,0 +1,15 @@
+{
+  "name": "바다 지킴이",
+  "short_name": "바다지킴이",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#00b4d8",
+  "theme_color": "#00b4d8",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
